@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --detectOpenHandles --forceExit"
   },
   "keywords": [],
   "author": "",
@@ -12,14 +12,18 @@
   "type": "commonjs",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-validator": "^7.3.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.2.1",
+    "pdfkit": "^0.18.0",
     "pg": "^8.20.0",
-    "redis": "^5.12.1"
+    "redis": "^5.12.1",
+    "stripe": "^22.1.0"
   },
   "devDependencies": {
     "jest": "^30.3.0",

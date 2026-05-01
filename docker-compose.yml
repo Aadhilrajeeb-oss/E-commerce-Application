@@ -1,0 +1,65 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: techmart_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-techmart}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-techmart_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-techmart}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./techmart-backend/migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-techmart}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: techmart_redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./techmart-backend
+      dockerfile: Dockerfile
+    container_name: techmart_backend
+    env_file:
+      - ./techmart-backend/.env
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./techmart-frontend
+      dockerfile: Dockerfile
+    container_name: techmart_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
