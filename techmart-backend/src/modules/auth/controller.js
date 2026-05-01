@@ -5,18 +5,19 @@ const redisClient = require('../../config/redis');
 const { success, error } = require('../../utils/apiResponse');
 
 const generateTokens = (user) => {
-  const payload = { id: user.id, role: user.role };
+  const payload = { id: user.id, role: user.role, customer_id: user.customer_id };
   const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' });
   const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
   return { accessToken, refreshToken };
 };
 
 exports.register = async (req, res) => {
+  const client = await pool.connect();
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, phone, address } = req.body;
     
     // Check if user exists
-    const userExists = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    const userExists = await client.query('SELECT id FROM users WHERE email = $1', [email]);
     if (userExists.rows.length > 0) {
       return error(res, 'User already exists', 400);
     }
@@ -24,14 +25,30 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(password, salt);
     
-    const newUser = await pool.query(
-      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role, created_at',
-      [name, email, passwordHash, role || 'staff']
+    await client.query('BEGIN');
+
+    let customerId = null;
+    if (role === 'customer') {
+      const customerResult = await client.query(
+        'INSERT INTO customers (name, email, phone, address_json) VALUES ($1, $2, $3, $4) RETURNING id',
+        [name, email, phone || null, JSON.stringify(address || {})]
+      );
+      customerId = customerResult.rows[0].id;
+    }
+
+    const newUser = await client.query(
+      'INSERT INTO users (name, email, password_hash, role, customer_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role, created_at',
+      [name, email, passwordHash, role || 'staff', customerId]
     );
+
+    await client.query('COMMIT');
 
     return success(res, newUser.rows[0], 'User registered successfully', 201);
   } catch (err) {
+    await client.query('ROLLBACK');
     return error(res, 'Error registering user', 500, err.message);
+  } finally {
+    client.release();
   }
 };
 
@@ -60,7 +77,7 @@ exports.login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    const userData = { id: user.id, name: user.name, email: user.email, role: user.role };
+    const userData = { id: user.id, name: user.name, email: user.email, role: user.role, customer_id: user.customer_id };
     return success(res, { accessToken, user: userData }, 'Login successful');
   } catch (err) {
     return error(res, 'Error logging in', 500, err.message);

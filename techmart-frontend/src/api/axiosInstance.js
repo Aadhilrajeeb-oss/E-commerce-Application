@@ -33,7 +33,8 @@ api.interceptors.response.use(
         }
       } catch (refreshError) {
         useAuthStore.getState().logout();
-        window.location.href = '/login';
+        const isCustomer = window.location.pathname.startsWith('/customer');
+        window.location.href = isCustomer ? '/customer/login' : '/login';
         return Promise.reject(refreshError);
       }
     }

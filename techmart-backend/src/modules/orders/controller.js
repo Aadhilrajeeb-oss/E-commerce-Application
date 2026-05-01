@@ -89,6 +89,12 @@ exports.getAll = async (req, res) => {
       countQuery += ` AND status = $${params.length}`;
     }
 
+    if (req.user.role === 'customer') {
+      params.push(req.user.customer_id);
+      query += ` AND o.customer_id = $${params.length}`;
+      countQuery += ` AND customer_id = $${params.length}`;
+    }
+
     query += ` ORDER BY o.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     
     const [result, countResult] = await Promise.all([

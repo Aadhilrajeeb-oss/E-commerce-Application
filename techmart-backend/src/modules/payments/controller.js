@@ -63,3 +63,22 @@ exports.webhook = async (req, res) => {
     res.status(500).end();
   }
 };
+
+exports.getHistory = async (req, res) => {
+  try {
+    const customerId = req.user.customer_id;
+    if (!customerId) return error(res, 'No customer profile found', 400);
+
+    const query = `
+      SELECT p.*, o.created_at as order_date 
+      FROM payments p 
+      JOIN orders o ON p.order_id = o.id 
+      WHERE o.customer_id = $1 
+      ORDER BY p.created_at DESC
+    `;
+    const result = await pool.query(query, [customerId]);
+    return success(res, result.rows);
+  } catch (err) {
+    return error(res, 'Error fetching payment history', 500, err.message);
+  }
+};
